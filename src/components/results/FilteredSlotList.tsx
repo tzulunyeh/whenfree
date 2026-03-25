@@ -48,10 +48,12 @@ export default function FilteredSlotList({ event, selections, participants, minD
               <CopyButton text={copyText} />
             </div>
             {group.slots.map((slot, j) => (
-              <div key={`${slot.date}-${slot.startSlot}`} className={`text-sm ${isAllPresent ? 'text-emerald-800' : 'text-gray-700'}`}>
-                {formattedLines[j]}
+              <div key={`${slot.date}-${slot.startSlot}`}>
+                <div className={`text-sm ${isAllPresent ? 'text-emerald-800' : 'text-gray-700'}`}>
+                  {formattedLines[j]}
+                </div>
                 {slot.absentees.length > 0 && (
-                  <span className="text-xs text-orange-500 ml-1.5">（缺：{slot.absentees.join('、')}）</span>
+                  <div className="text-xs text-orange-500">缺：{slot.absentees.join('、')}</div>
                 )}
               </div>
             ))}
