@@ -20,8 +20,8 @@ export default function TimeLabels({ slots }: Props) {
       {hourBoundaries.map((slot) => (
         <span
           key={slot}
-          className="absolute right-1 text-[10px] text-gray-400 leading-none -translate-y-1/2"
-          style={{ top: HEADER_H + (slot - startSlot) * CELL_H }}
+          className="absolute right-1 text-[10px] text-gray-400 leading-none"
+          style={{ top: HEADER_H + (slot - startSlot) * CELL_H - 5 }}
         >
           {slotToTime(slot)}
         </span>
