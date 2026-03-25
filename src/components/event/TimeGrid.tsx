@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { slotRange, normalizeSlotRange } from '../../lib/slots'
 import type { Event, Selection } from '../../lib/types'
 import DayColumn from './DayColumn'
@@ -20,6 +20,8 @@ interface Props {
 }
 
 export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlots }: Props) {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<DragState | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [hover, setHover] = useState<{ date: string | null; slot: number | null }>({ date: null, slot: null })
 
@@ -63,44 +65,98 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     return map
   }, [dragState, hover, dateToIndex, event.dates])
 
-  function commitSelection(endDate: string, endSlot: number) {
-    if (!dragState) return
-    const a = dateToIndex.get(dragState.anchorDate)
+  const commitSelection = useCallback((endDate: string, endSlot: number) => {
+    const ds = dragRef.current
+    if (!ds) return
+    const a = dateToIndex.get(ds.anchorDate)
     const b = dateToIndex.get(endDate)
     if (a === undefined || b === undefined) return
     const [dLo, dHi] = a <= b ? [a, b] : [b, a]
     const affected = event.dates.slice(dLo, dHi + 1)
-    const [lo, hi] = normalizeSlotRange(dragState.anchorSlot, endSlot)
+    const [lo, hi] = normalizeSlotRange(ds.anchorSlot, endSlot)
     const rangeSlots = slotRange(lo, hi + 1)
     for (const d of affected) {
-      if (dragState.mode === 'selecting') onAddSlots(d, rangeSlots)
+      if (ds.mode === 'selecting') onAddSlots(d, rangeSlots)
       else onRemoveSlots(d, rangeSlots)
     }
-  }
+  }, [dateToIndex, event.dates, onAddSlots, onRemoveSlots])
 
-  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+  const clearDrag = useCallback(() => {
+    dragRef.current = null
+    setDragState(null)
+    setHover({ date: null, slot: null })
+  }, [])
+
+  // Touch events — registered as non-passive so preventDefault works on iOS Safari
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+
+    function onTouchStart(e: TouchEvent) {
+      const t = e.touches[0]
+      const cell = getCellFromPoint(t.clientX, t.clientY)
+      if (!cell) return
+      e.preventDefault()
+      const selected = selectedByDate.get(cell.date) ?? new Set<number>()
+      const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
+      const state: DragState = { mode, anchorDate: cell.date, anchorSlot: cell.slot }
+      dragRef.current = state
+      setDragState(state)
+      setHover({ date: cell.date, slot: cell.slot })
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!dragRef.current) return
+      e.preventDefault()
+      const t = e.touches[0]
+      const cell = getCellFromPoint(t.clientX, t.clientY)
+      if (cell) setHover({ date: cell.date, slot: cell.slot })
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (!dragRef.current) return
+      const t = e.changedTouches[0]
+      const cell = getCellFromPoint(t.clientX, t.clientY)
+      if (cell) commitSelection(cell.date, cell.slot)
+      clearDrag()
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', clearDrag)
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', clearDrag)
+    }
+  }, [selectedByDate, commitSelection, clearDrag])
+
+  // Mouse events for desktop
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (dragRef.current) return // touch already handling
     const cell = getCellFromPoint(e.clientX, e.clientY)
     if (!cell) return
     const selected = selectedByDate.get(cell.date) ?? new Set<number>()
     const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
-    setDragState({ mode, anchorDate: cell.date, anchorSlot: cell.slot })
+    const state: DragState = { mode, anchorDate: cell.date, anchorSlot: cell.slot }
+    dragRef.current = state
+    setDragState(state)
     setHover({ date: cell.date, slot: cell.slot })
-    e.currentTarget.setPointerCapture(e.pointerId)
-    e.preventDefault()
   }
 
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!dragState) return
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!dragRef.current) return
     const cell = getCellFromPoint(e.clientX, e.clientY)
     if (cell) setHover({ date: cell.date, slot: cell.slot })
   }
 
-  function handlePointerUp(e: React.PointerEvent) {
-    if (!dragState) return
+  function handleMouseUp(e: React.MouseEvent) {
+    if (!dragRef.current) return
     const cell = getCellFromPoint(e.clientX, e.clientY)
     if (cell) commitSelection(cell.date, cell.slot)
-    setDragState(null)
-    setHover({ date: null, slot: null })
+    clearDrag()
   }
 
   return (
@@ -112,11 +168,12 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
       )}
 
       <div
+        ref={gridRef}
         className="overflow-x-auto overscroll-x-contain select-none"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => { setDragState(null); setHover({ date: null, slot: null }) }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={clearDrag}
       >
         <div className="flex gap-0.5">
           <TimeLabels slots={slots} />
