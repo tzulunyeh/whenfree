@@ -1,27 +1,31 @@
 import { slotToTime } from '../../lib/slots'
 
+const HEADER_H = 52  // matches h-[52px] spacer in DayColumn header
+const CELL_H = 28    // matches h-7 per slot cell
+
 interface Props {
   slots: number[]
 }
 
 export default function TimeLabels({ slots }: Props) {
+  const startSlot = slots[0]
+  const hourBoundaries = [
+    ...slots.filter(s => s % 2 === 0),
+    slots[slots.length - 1] + 1,
+  ]
+  const totalH = HEADER_H + slots.length * CELL_H
+
   return (
-    <div className="flex flex-col min-w-[40px] shrink-0">
-      <div className="h-[52px]" />
-      {slots.map((slot) => (
-        <div key={slot} className="h-7 relative">
-          {slot % 2 === 0 && (
-            <span className="absolute top-0 -translate-y-1/2 right-1 text-[10px] text-gray-400 leading-none">
-              {slotToTime(slot)}
-            </span>
-          )}
-        </div>
-      ))}
-      <div className="relative h-0">
-        <span className="absolute -top-[5px] right-1 text-[10px] text-gray-400 leading-none">
-          {slotToTime(slots[slots.length - 1] + 1)}
+    <div className="min-w-[40px] shrink-0 relative" style={{ height: totalH }}>
+      {hourBoundaries.map((slot) => (
+        <span
+          key={slot}
+          className="absolute right-1 text-[10px] text-gray-400 leading-none -translate-y-1/2"
+          style={{ top: HEADER_H + (slot - startSlot) * CELL_H }}
+        >
+          {slotToTime(slot)}
         </span>
-      </div>
+      ))}
     </div>
   )
 }
