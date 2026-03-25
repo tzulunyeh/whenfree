@@ -65,21 +65,21 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     return map
   }, [dragState, hover, dateToIndex, event.dates])
 
-  const commitSelection = useCallback((endDate: string, endSlot: number) => {
-    const ds = dragRef.current
-    if (!ds) return
-    const a = dateToIndex.get(ds.anchorDate)
-    const b = dateToIndex.get(endDate)
-    if (a === undefined || b === undefined) return
-    const [dLo, dHi] = a <= b ? [a, b] : [b, a]
-    const affected = event.dates.slice(dLo, dHi + 1)
-    const [lo, hi] = normalizeSlotRange(ds.anchorSlot, endSlot)
-    const rangeSlots = slotRange(lo, hi + 1)
-    for (const d of affected) {
-      if (ds.mode === 'selecting') onAddSlots(d, rangeSlots)
-      else onRemoveSlots(d, rangeSlots)
-    }
-  }, [dateToIndex, event.dates, onAddSlots, onRemoveSlots])
+  // Refs so native touch handlers always see current values without re-registering listeners
+  const selectedByDateRef = useRef(selectedByDate)
+  selectedByDateRef.current = selectedByDate
+
+  const dateToIndexRef = useRef(dateToIndex)
+  dateToIndexRef.current = dateToIndex
+
+  const eventDatesRef = useRef(event.dates)
+  eventDatesRef.current = event.dates
+
+  const onAddSlotsRef = useRef(onAddSlots)
+  onAddSlotsRef.current = onAddSlots
+
+  const onRemoveSlotsRef = useRef(onRemoveSlots)
+  onRemoveSlotsRef.current = onRemoveSlots
 
   const clearDrag = useCallback(() => {
     dragRef.current = null
@@ -87,7 +87,10 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     setHover({ date: null, slot: null })
   }, [])
 
-  // Touch events — registered as non-passive so preventDefault works on iOS Safari
+  const clearDragRef = useRef(clearDrag)
+  clearDragRef.current = clearDrag
+
+  // Touch events — registered once at mount; { passive: false } required for iOS Safari
   useEffect(() => {
     const el = gridRef.current
     if (!el) return
@@ -97,7 +100,7 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
       const cell = getCellFromPoint(t.clientX, t.clientY)
       if (!cell) return
       e.preventDefault()
-      const selected = selectedByDate.get(cell.date) ?? new Set<number>()
+      const selected = selectedByDateRef.current.get(cell.date) ?? new Set<number>()
       const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
       const state: DragState = { mode, anchorDate: cell.date, anchorSlot: cell.slot }
       dragRef.current = state
@@ -115,23 +118,39 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
 
     function onTouchEnd(e: TouchEvent) {
       if (!dragRef.current) return
+      const ds = dragRef.current
       const t = e.changedTouches[0]
       const cell = getCellFromPoint(t.clientX, t.clientY)
-      if (cell) commitSelection(cell.date, cell.slot)
-      clearDrag()
+      if (cell) {
+        const a = dateToIndexRef.current.get(ds.anchorDate)
+        const b = dateToIndexRef.current.get(cell.date)
+        if (a !== undefined && b !== undefined) {
+          const [dLo, dHi] = a <= b ? [a, b] : [b, a]
+          const affected = eventDatesRef.current.slice(dLo, dHi + 1)
+          const [lo, hi] = normalizeSlotRange(ds.anchorSlot, cell.slot)
+          const rangeSlots = slotRange(lo, hi + 1)
+          for (const d of affected) {
+            if (ds.mode === 'selecting') onAddSlotsRef.current(d, rangeSlots)
+            else onRemoveSlotsRef.current(d, rangeSlots)
+          }
+        }
+      }
+      clearDragRef.current()
     }
+
+    function onTouchCancel() { clearDragRef.current() }
 
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
-    el.addEventListener('touchcancel', clearDrag)
+    el.addEventListener('touchcancel', onTouchCancel)
     return () => {
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
-      el.removeEventListener('touchcancel', clearDrag)
+      el.removeEventListener('touchcancel', onTouchCancel)
     }
-  }, [selectedByDate, commitSelection, clearDrag])
+  }, [])
 
   // Mouse events for desktop
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
@@ -153,9 +172,23 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
   }
 
   function handleMouseUp(e: React.MouseEvent) {
-    if (!dragRef.current) return
+    const ds = dragRef.current
+    if (!ds) return
     const cell = getCellFromPoint(e.clientX, e.clientY)
-    if (cell) commitSelection(cell.date, cell.slot)
+    if (cell) {
+      const a = dateToIndex.get(ds.anchorDate)
+      const b = dateToIndex.get(cell.date)
+      if (a !== undefined && b !== undefined) {
+        const [dLo, dHi] = a <= b ? [a, b] : [b, a]
+        const affected = event.dates.slice(dLo, dHi + 1)
+        const [lo, hi] = normalizeSlotRange(ds.anchorSlot, cell.slot)
+        const rangeSlots = slotRange(lo, hi + 1)
+        for (const d of affected) {
+          if (ds.mode === 'selecting') onAddSlots(d, rangeSlots)
+          else onRemoveSlots(d, rangeSlots)
+        }
+      }
+    }
     clearDrag()
   }
 
