@@ -68,7 +68,7 @@ export default function DatePicker({ selected, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">選擇日期（可多選）</label>
+      <label className="block text-sm font-medium text-gray-700">選擇日期（點選開頭與結尾）</label>
 
       <div className="border border-gray-200 rounded-xl p-3 bg-white">
         <div className="flex items-center justify-between mb-3">

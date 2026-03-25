@@ -44,7 +44,7 @@ export function useParticipants(eventId: string) {
         }
       )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        if (status === 'CHANNEL_ERROR') {
           toast.error(REALTIME_DISCONNECT_MSG)
         }
       })
