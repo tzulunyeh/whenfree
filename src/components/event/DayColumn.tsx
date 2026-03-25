@@ -8,12 +8,10 @@ interface Props {
   anchorSlot: number | null
   previewSlots: Set<number>
   isDeselecting: boolean
-  onSlotTap: (slot: number) => void
-  onSlotHover: (slot: number) => void
 }
 
 export default function DayColumn({
-  date, slots, selectedSlots, anchorSlot, previewSlots, isDeselecting, onSlotTap, onSlotHover,
+  date, slots, selectedSlots, anchorSlot, previewSlots, isDeselecting,
 }: Props) {
   const { dayLabel, dateLabel } = formatDateLabel(date)
 
@@ -26,12 +24,12 @@ export default function DayColumn({
       {slots.map((slot) => (
         <TimeSlotCell
           key={slot}
+          date={date}
+          slot={slot}
           selected={selectedSlots.has(slot)}
           isAnchor={anchorSlot === slot}
           isPreview={previewSlots.has(slot)}
           isDeselecting={isDeselecting}
-          onTap={() => onSlotTap(slot)}
-          onHover={() => onSlotHover(slot)}
         />
       ))}
     </div>

@@ -4,12 +4,12 @@ import type { Event, Selection } from '../../lib/types'
 import DayColumn from './DayColumn'
 import TimeLabels from '../ui/TimeLabels'
 
-type TapMode = 'idle' | 'selecting_end' | 'deselecting_end'
+type SelectMode = 'selecting' | 'deselecting'
 
-interface TapState {
-  mode: TapMode
-  anchorDate: string | null
-  anchorSlot: number | null
+interface DragState {
+  mode: SelectMode
+  anchorDate: string
+  anchorSlot: number
 }
 
 interface Props {
@@ -20,10 +20,11 @@ interface Props {
 }
 
 export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlots }: Props) {
-  const [tapState, setTapState] = useState<TapState>({ mode: 'idle', anchorDate: null, anchorSlot: null })
+  const [dragState, setDragState] = useState<DragState | null>(null)
   const [hover, setHover] = useState<{ date: string | null; slot: number | null }>({ date: null, slot: null })
 
   const slots = useMemo(() => slotRange(event.earliest_time, event.latest_time), [event.earliest_time, event.latest_time])
+
   const dateToIndex = useMemo(() => {
     const map = new Map<string, number>()
     event.dates.forEach((d, i) => map.set(d, i))
@@ -39,81 +40,95 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     return map
   }, [mySelections])
 
-  function getAffectedDates(endDate: string): string[] {
-    const a = dateToIndex.get(tapState.anchorDate!)
-    const b = dateToIndex.get(endDate)
-    if (a === undefined || b === undefined) return []
-    const [lo, hi] = a <= b ? [a, b] : [b, a]
-    return event.dates.slice(lo, hi + 1)
+  function getCellFromPoint(x: number, y: number): { date: string; slot: number } | null {
+    const el = document.elementFromPoint(x, y)
+    const cell = el?.closest('[data-date][data-slot]') as HTMLElement | null
+    if (!cell) return null
+    const date = cell.dataset.date!
+    const slot = Number(cell.dataset.slot)
+    if (!date || isNaN(slot)) return null
+    return { date, slot }
   }
 
   const previewMap = useMemo<Map<string, Set<number>>>(() => {
     const map = new Map<string, Set<number>>()
-    if (tapState.mode === 'idle' || tapState.anchorSlot === null || tapState.anchorDate === null) return map
-    if (hover.slot === null || hover.date === null) return map
-    const a = dateToIndex.get(tapState.anchorDate)
+    if (!dragState || hover.slot === null || hover.date === null) return map
+    const a = dateToIndex.get(dragState.anchorDate)
     const b = dateToIndex.get(hover.date)
     if (a === undefined || b === undefined) return map
     const [dLo, dHi] = a <= b ? [a, b] : [b, a]
-    const [sLo, sHi] = normalizeSlotRange(tapState.anchorSlot, hover.slot)
+    const [sLo, sHi] = normalizeSlotRange(dragState.anchorSlot, hover.slot)
     const previewSet = new Set(slotRange(sLo, sHi + 1))
     for (const d of event.dates.slice(dLo, dHi + 1)) map.set(d, previewSet)
     return map
-  }, [tapState, hover, dateToIndex, event.dates])
+  }, [dragState, hover, dateToIndex, event.dates])
 
-  function handleSlotTap(date: string, slot: number) {
-    if (tapState.mode === 'idle') {
-      const selected = selectedByDate.get(date) ?? new Set<number>()
-      const mode: TapMode = selected.has(slot) ? 'deselecting_end' : 'selecting_end'
-      setTapState({ mode, anchorDate: date, anchorSlot: slot })
-      return
-    }
-
-    const affected = getAffectedDates(date)
-    const [lo, hi] = normalizeSlotRange(tapState.anchorSlot!, slot)
+  function commitSelection(endDate: string, endSlot: number) {
+    if (!dragState) return
+    const a = dateToIndex.get(dragState.anchorDate)
+    const b = dateToIndex.get(endDate)
+    if (a === undefined || b === undefined) return
+    const [dLo, dHi] = a <= b ? [a, b] : [b, a]
+    const affected = event.dates.slice(dLo, dHi + 1)
+    const [lo, hi] = normalizeSlotRange(dragState.anchorSlot, endSlot)
     const rangeSlots = slotRange(lo, hi + 1)
-
     for (const d of affected) {
-      if (tapState.mode === 'selecting_end') {
-        onAddSlots(d, rangeSlots)
-      } else {
-        onRemoveSlots(d, rangeSlots)
-      }
+      if (dragState.mode === 'selecting') onAddSlots(d, rangeSlots)
+      else onRemoveSlots(d, rangeSlots)
     }
-
-    setTapState({ mode: 'idle', anchorDate: null, anchorSlot: null })
-    setHover({ date: null, slot: null })
   }
 
-  function handleSlotHover(date: string, slot: number) {
-    if (tapState.mode !== 'idle') {
-      setHover({ date, slot })
-    }
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const cell = getCellFromPoint(e.clientX, e.clientY)
+    if (!cell) return
+    const selected = selectedByDate.get(cell.date) ?? new Set<number>()
+    const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
+    setDragState({ mode, anchorDate: cell.date, anchorSlot: cell.slot })
+    setHover({ date: cell.date, slot: cell.slot })
+    e.currentTarget.setPointerCapture(e.pointerId)
+    e.preventDefault()
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!dragState) return
+    const cell = getCellFromPoint(e.clientX, e.clientY)
+    if (cell) setHover({ date: cell.date, slot: cell.slot })
+  }
+
+  function handlePointerUp(e: React.PointerEvent) {
+    if (!dragState) return
+    const cell = getCellFromPoint(e.clientX, e.clientY)
+    if (cell) commitSelection(cell.date, cell.slot)
+    setDragState(null)
+    setHover({ date: null, slot: null })
   }
 
   return (
     <div>
-      {tapState.mode !== 'idle' && (
-        <div className={`mb-2 text-sm font-medium ${tapState.mode === 'selecting_end' ? 'text-emerald-600' : 'text-orange-500'}`}>
-          {tapState.mode === 'selecting_end' ? '點擊結束時間以選取' : '點擊結束時間以取消選取'}
+      {dragState && (
+        <div className={`mb-2 text-sm font-medium ${dragState.mode === 'selecting' ? 'text-emerald-600' : 'text-orange-500'}`}>
+          {dragState.mode === 'selecting' ? '拖曳至結束時間' : '拖曳至結束時間以取消'}
         </div>
       )}
 
-      <div className="overflow-x-auto overscroll-x-contain select-none">
+      <div
+        className="overflow-x-auto overscroll-x-contain select-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => { setDragState(null); setHover({ date: null, slot: null }) }}
+      >
         <div className="flex gap-0.5">
           <TimeLabels slots={slots} />
-
           {event.dates.map((date) => (
             <DayColumn
               key={date}
               date={date}
               slots={slots}
               selectedSlots={selectedByDate.get(date) ?? new Set()}
-              anchorSlot={tapState.anchorDate === date ? tapState.anchorSlot : null}
+              anchorSlot={dragState?.anchorDate === date ? dragState.anchorSlot : null}
               previewSlots={previewMap.get(date) ?? new Set()}
-              isDeselecting={tapState.mode === 'deselecting_end'}
-              onSlotTap={(slot) => handleSlotTap(date, slot)}
-              onSlotHover={(slot) => handleSlotHover(date, slot)}
+              isDeselecting={dragState?.mode === 'deselecting' === true}
             />
           ))}
         </div>
