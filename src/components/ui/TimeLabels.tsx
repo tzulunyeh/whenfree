@@ -11,7 +11,7 @@ export default function TimeLabels({ slots }: Props) {
       {slots.map((slot) => (
         <div key={slot} className="h-7 relative">
           {slot % 2 === 0 && (
-            <span className="absolute -top-[5px] right-1 text-[10px] text-gray-400 leading-none">
+            <span className="absolute top-0 -translate-y-1/2 right-1 text-[10px] text-gray-400 leading-none">
               {slotToTime(slot)}
             </span>
           )}
