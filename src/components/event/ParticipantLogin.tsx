@@ -64,7 +64,7 @@ export default function ParticipantLogin({ eventId, eventName, participants, onL
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">{eventName}</h2>

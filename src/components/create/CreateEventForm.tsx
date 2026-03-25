@@ -20,7 +20,6 @@ export default function CreateEventForm() {
   const [segments, setSegments] = useState<QuickSegment[]>([
     { name: '晚上', start: timeToSlot(18, 0), end: timeToSlot(22, 0) },
   ])
-  const [adminOnlyCreator, setAdminOnlyCreator] = useState(false)
   const [loading, setLoading] = useState(false)
   const [createdSlug, setCreatedSlug] = useState<string | null>(null)
 
@@ -39,7 +38,6 @@ export default function CreateEventForm() {
         earliest_time: earliestSlot,
         latest_time: latestSlot,
         quick_segments: segments,
-        admin_only_creator: adminOnlyCreator,
       })
       if (error) throw error
       setCreatedSlug(slug)
@@ -84,7 +82,7 @@ export default function CreateEventForm() {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例如：期末聚餐時間"
+          placeholder="例如：一月團練"
           maxLength={80}
           className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
@@ -105,18 +103,6 @@ export default function CreateEventForm() {
         earliestSlot={earliestSlot}
         latestSlot={latestSlot}
       />
-
-      <div>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={adminOnlyCreator}
-            onChange={(e) => setAdminOnlyCreator(e.target.checked)}
-            className="w-4 h-4 accent-emerald-500"
-          />
-          <span className="text-sm text-gray-700">只有我（建立者）可以管理活動</span>
-        </label>
-      </div>
 
       <button
         type="submit"
