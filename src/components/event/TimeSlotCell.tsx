@@ -15,7 +15,7 @@ export default function TimeSlotCell({ selected, isAnchor, isPreview, isDeselect
 
   return (
     <div
-      className={`h-7 border-b border-gray-200 cursor-pointer touch-none ${bg}`}
+      className={`h-7 border-b border-gray-200 cursor-pointer touch-pan-x ${bg}`}
       onPointerDown={(e) => { e.preventDefault(); onTap() }}
       onPointerEnter={onHover}
     />

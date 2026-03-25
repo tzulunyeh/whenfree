@@ -43,6 +43,7 @@ export default function CreateEventForm() {
       })
       if (error) throw error
       setCreatedSlug(slug)
+      window.scrollTo(0, 0)
     } catch (err) {
       console.error(err)
       toast.error('建立失敗，請稍後再試')
