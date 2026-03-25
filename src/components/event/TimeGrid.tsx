@@ -6,6 +6,8 @@ import TimeLabels from '../ui/TimeLabels'
 
 type SelectMode = 'selecting' | 'deselecting'
 
+const EMPTY_SET = new Set<number>()
+
 interface DragState {
   mode: SelectMode
   anchorDate: string
@@ -87,8 +89,20 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     setHover({ date: null, slot: null })
   }, [])
 
-  const clearDragRef = useRef(clearDrag)
-  clearDragRef.current = clearDrag
+  // Stable because all dependencies are accessed through refs
+  const doCommit = useCallback((ds: DragState, endDate: string, endSlot: number) => {
+    const a = dateToIndexRef.current.get(ds.anchorDate)
+    const b = dateToIndexRef.current.get(endDate)
+    if (a === undefined || b === undefined) return
+    const [dLo, dHi] = a <= b ? [a, b] : [b, a]
+    const affected = eventDatesRef.current.slice(dLo, dHi + 1)
+    const [lo, hi] = normalizeSlotRange(ds.anchorSlot, endSlot)
+    const rangeSlots = slotRange(lo, hi + 1)
+    for (const d of affected) {
+      if (ds.mode === 'selecting') onAddSlotsRef.current(d, rangeSlots)
+      else onRemoveSlotsRef.current(d, rangeSlots)
+    }
+  }, [])
 
   // Touch events — registered once at mount; { passive: false } required for iOS Safari
   useEffect(() => {
@@ -100,7 +114,7 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
       const cell = getCellFromPoint(t.clientX, t.clientY)
       if (!cell) return
       e.preventDefault()
-      const selected = selectedByDateRef.current.get(cell.date) ?? new Set<number>()
+      const selected = selectedByDateRef.current.get(cell.date) ?? EMPTY_SET
       const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
       const state: DragState = { mode, anchorDate: cell.date, anchorSlot: cell.slot }
       dragRef.current = state
@@ -117,28 +131,15 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     }
 
     function onTouchEnd(e: TouchEvent) {
-      if (!dragRef.current) return
       const ds = dragRef.current
+      if (!ds) return
       const t = e.changedTouches[0]
       const cell = getCellFromPoint(t.clientX, t.clientY)
-      if (cell) {
-        const a = dateToIndexRef.current.get(ds.anchorDate)
-        const b = dateToIndexRef.current.get(cell.date)
-        if (a !== undefined && b !== undefined) {
-          const [dLo, dHi] = a <= b ? [a, b] : [b, a]
-          const affected = eventDatesRef.current.slice(dLo, dHi + 1)
-          const [lo, hi] = normalizeSlotRange(ds.anchorSlot, cell.slot)
-          const rangeSlots = slotRange(lo, hi + 1)
-          for (const d of affected) {
-            if (ds.mode === 'selecting') onAddSlotsRef.current(d, rangeSlots)
-            else onRemoveSlotsRef.current(d, rangeSlots)
-          }
-        }
-      }
-      clearDragRef.current()
+      if (cell) doCommit(ds, cell.date, cell.slot)
+      clearDrag()
     }
 
-    function onTouchCancel() { clearDragRef.current() }
+    function onTouchCancel() { clearDrag() }
 
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
@@ -157,7 +158,7 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     if (dragRef.current) return // touch already handling
     const cell = getCellFromPoint(e.clientX, e.clientY)
     if (!cell) return
-    const selected = selectedByDate.get(cell.date) ?? new Set<number>()
+    const selected = selectedByDate.get(cell.date) ?? EMPTY_SET
     const mode: SelectMode = selected.has(cell.slot) ? 'deselecting' : 'selecting'
     const state: DragState = { mode, anchorDate: cell.date, anchorSlot: cell.slot }
     dragRef.current = state
@@ -175,20 +176,7 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     const ds = dragRef.current
     if (!ds) return
     const cell = getCellFromPoint(e.clientX, e.clientY)
-    if (cell) {
-      const a = dateToIndex.get(ds.anchorDate)
-      const b = dateToIndex.get(cell.date)
-      if (a !== undefined && b !== undefined) {
-        const [dLo, dHi] = a <= b ? [a, b] : [b, a]
-        const affected = event.dates.slice(dLo, dHi + 1)
-        const [lo, hi] = normalizeSlotRange(ds.anchorSlot, cell.slot)
-        const rangeSlots = slotRange(lo, hi + 1)
-        for (const d of affected) {
-          if (ds.mode === 'selecting') onAddSlots(d, rangeSlots)
-          else onRemoveSlots(d, rangeSlots)
-        }
-      }
-    }
+    if (cell) doCommit(ds, cell.date, cell.slot)
     clearDrag()
   }
 
@@ -209,9 +197,9 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
               key={date}
               date={date}
               slots={slots}
-              selectedSlots={selectedByDate.get(date) ?? new Set()}
+              selectedSlots={selectedByDate.get(date) ?? EMPTY_SET}
               anchorSlot={dragState?.anchorDate === date ? dragState.anchorSlot : null}
-              previewSlots={previewMap.get(date) ?? new Set()}
+              previewSlots={previewMap.get(date) ?? EMPTY_SET}
               isDeselecting={dragState?.mode === 'deselecting' === true}
             />
           ))}
