@@ -49,13 +49,21 @@ export function findMatchingSlots(
           runStart = slot
           runAttendees = new Set(attendees)
         } else {
-          for (const id of runAttendees!) {
-            if (!attendees.has(id)) runAttendees!.delete(id)
-          }
-          if (runAttendees!.size < minAttendance) {
+          // If someone new joined, flush and start a fresh run (better block possible)
+          const someoneJoined = [...attendees].some(id => !runAttendees!.has(id))
+          if (someoneJoined) {
             flushRun(slot)
             runStart = slot
             runAttendees = new Set(attendees)
+          } else {
+            for (const id of runAttendees!) {
+              if (!attendees.has(id)) runAttendees!.delete(id)
+            }
+            if (runAttendees!.size < minAttendance) {
+              flushRun(slot)
+              runStart = slot
+              runAttendees = new Set(attendees)
+            }
           }
         }
       } else {
