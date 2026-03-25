@@ -194,12 +194,6 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
 
   return (
     <div>
-      {dragState && (
-        <div className={`mb-2 text-sm font-medium ${dragState.mode === 'selecting' ? 'text-emerald-600' : 'text-orange-500'}`}>
-          {dragState.mode === 'selecting' ? '拖曳至結束時間' : '拖曳至結束時間以取消'}
-        </div>
-      )}
-
       <div
         ref={gridRef}
         className="overflow-x-auto overscroll-x-contain select-none"
