@@ -17,7 +17,7 @@ export default function DayColumn({
 
   return (
     <div className="flex flex-col min-w-[52px]">
-      <div className="text-center py-1 border-b border-gray-200 sticky top-0 bg-white z-10">
+      <div className="h-[52px] flex flex-col justify-center text-center border-b border-gray-200 sticky top-0 bg-white z-10">
         <div className="text-xs text-gray-500">{dayLabel}</div>
         <div className="text-sm font-medium text-gray-800">{dateLabel}</div>
       </div>
