@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useParams } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent'
@@ -32,12 +32,21 @@ export default function EventPage() {
     return () => { document.title = 'WhenFree' }
   }, [event?.name])
 
+  const wasSeenInList = useRef(false)
+
   useEffect(() => {
-    if (!participantsLoading && session && participants.length > 0 && !participants.some(p => p.id === session.participantId)) {
+    if (!session) { wasSeenInList.current = false; return }
+    if (participantsLoading) return
+
+    const inList = participants.some(p => p.id === session.participantId)
+
+    if (inList) {
+      wasSeenInList.current = true
+    } else if (wasSeenInList.current) {
       clearSession()
       toast('你的名字已被移除，請重新加入', { icon: 'ℹ️' })
     }
-  }, [participants, session, participantsLoading])
+  }, [participants, session, participantsLoading, clearSession])
 
   const mySelections = useMemo(
     () => selections.filter((s) => s.participant_id === session?.participantId),

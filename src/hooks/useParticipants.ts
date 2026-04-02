@@ -61,12 +61,15 @@ export function useParticipants(eventId: string) {
   }, [eventId])
 
   async function deleteParticipant(id: string) {
-    setParticipants((prev) => prev.filter((p) => p.id !== id))
+    let removed: Participant | undefined
+    setParticipants((prev) => {
+      removed = prev.find((p) => p.id === id)
+      return prev.filter((p) => p.id !== id)
+    })
     const { error } = await supabase.from('participants').delete().eq('id', id)
     if (error) {
       toast.error('刪除失敗')
-      const { data } = await supabase.from('participants').select('*').eq('event_id', eventId)
-      if (data) setParticipants(data as Participant[])
+      if (removed) setParticipants((prev) => [...prev, removed!])
     }
   }
 
