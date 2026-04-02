@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { useParams } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent'
 import { useParticipantSession } from '../hooks/useParticipantSession'
@@ -18,7 +19,7 @@ export default function EventPage() {
   const { event, loading, error } = useEvent(slug!)
   const { session, saveSession, clearSession } = useParticipantSession(event?.id ?? '')
   const { selections, addSlots, removeSlots } = useSelections(event?.id ?? '', session?.participantId ?? '')
-  const { participants } = useParticipants(event?.id ?? '')
+  const { participants, loading: participantsLoading, deleteParticipant } = useParticipants(event?.id ?? '')
 
   const [minDurationSlots, setMinDurationSlots] = useState(4)
   const [minAttendance, setMinAttendance] = useState<number | null>(null) // null = 全員（跟著人數走）
@@ -30,6 +31,13 @@ export default function EventPage() {
     if (event?.name) document.title = event.name
     return () => { document.title = 'WhenFree' }
   }, [event?.name])
+
+  useEffect(() => {
+    if (!participantsLoading && session && participants.length > 0 && !participants.some(p => p.id === session.participantId)) {
+      clearSession()
+      toast('你的名字已被移除，請重新加入', { icon: 'ℹ️' })
+    }
+  }, [participants, session, participantsLoading])
 
   const mySelections = useMemo(
     () => selections.filter((s) => s.participant_id === session?.participantId),
@@ -100,9 +108,20 @@ export default function EventPage() {
           {participants.length > 0 && (
             <div className="flex gap-1.5 flex-wrap">
               {participants.map((p) => (
-                <div key={p.id} className="flex flex-col items-center gap-0.5">
+                <div key={p.id} className="relative group flex flex-col items-center gap-0.5">
                   <Avatar seed={p.avatar_seed} size={28} />
                   <span className="text-[10px] text-gray-500 max-w-[36px] truncate">{p.name}</span>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`確定要移除「${p.name}」的所有時段？此操作無法復原。`)) {
+                        deleteParticipant(p.id)
+                      }
+                    }}
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-400 hover:bg-red-500 text-white rounded-full text-[10px] leading-none opacity-30 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    aria-label={`移除 ${p.name}`}
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>

@@ -43,6 +43,14 @@ export function useParticipants(eventId: string) {
           })
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'participants', filter: `event_id=eq.${eventId}` },
+        (payload) => {
+          const old = payload.old as { id: string }
+          setParticipants((prev) => prev.filter((p) => p.id !== old.id))
+        }
+      )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR') {
           toast.error(REALTIME_DISCONNECT_MSG)
@@ -52,5 +60,10 @@ export function useParticipants(eventId: string) {
     return () => { supabase.removeChannel(channel) }
   }, [eventId])
 
-  return { participants, loading }
+  async function deleteParticipant(id: string) {
+    const { error } = await supabase.from('participants').delete().eq('id', id)
+    if (error) toast.error('刪除失敗')
+  }
+
+  return { participants, loading, deleteParticipant }
 }

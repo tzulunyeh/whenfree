@@ -52,6 +52,7 @@ CREATE POLICY "events_insert" ON events FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "participants_select" ON participants FOR SELECT USING (true);
 CREATE POLICY "participants_insert" ON participants FOR INSERT WITH CHECK (true);
+CREATE POLICY "participants_delete" ON participants FOR DELETE USING (true);
 
 CREATE POLICY "selections_select" ON selections FOR SELECT USING (true);
 CREATE POLICY "selections_insert" ON selections FOR INSERT WITH CHECK (true);
