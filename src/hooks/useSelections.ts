@@ -92,11 +92,41 @@ export function useSelections(eventId: string, participantId: string) {
       return
     }
 
-    if (data) {
+    if (data && data.length > 0) {
+      // Normal upsert: replace temp entries with real data
       setSelections((prev) => [
         ...prev.filter((s) => !tempIds.includes(s.id)),
         ...(data as Selection[]),
       ])
+    } else {
+      // Empty array = ignoreDuplicates skipped, re-fetch real IDs to replace temp
+      const { data: synced, error: syncError } = await supabase
+        .from('selections')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('participant_id', participantId)
+        .eq('date', date)
+        .in('slot', uniqueSlots)
+
+      if (syncError) {
+        setSelections((prev) => prev.filter((s) => !tempIds.includes(s.id)))
+        toast.error('同步失敗，請重試')
+        return
+      }
+
+      if (synced && synced.length > 0) {
+        setSelections((prev) => {
+          const withoutTemp = prev.filter((s) => !tempIds.includes(s.id))
+          // Dedupe by id to avoid duplicates in drag scenarios
+          const existingIds = new Set(withoutTemp.map((s) => s.id))
+          const newSelections = (synced as Selection[]).filter((s) => !existingIds.has(s.id))
+          return [...withoutTemp, ...newSelections]
+        })
+      } else {
+        // Re-fetch succeeded but returned empty array, clear temp and show error
+        setSelections((prev) => prev.filter((s) => !tempIds.includes(s.id)))
+        toast.error('資料同步異常，請重新整理')
+      }
     }
   }, [eventId, participantId])
 
