@@ -5,17 +5,27 @@ import type { Selection } from '../lib/types'
 import { REALTIME_DISCONNECT_MSG } from '../lib/constants'
 
 export function useSelections(eventId: string, participantId: string) {
-  const [selections, setSelections] = useState<Selection[]>([])
-  const [loading, setLoading] = useState(true)
-  const selectionsRef = useRef(selections)
+  const [state, setState] = useState<{
+    selections: Selection[]
+    loading: boolean
+    lastEventId: string
+  }>({
+    selections: [],
+    loading: true,
+    lastEventId: eventId
+  })
+  const selectionsRef = useRef(state.selections)
 
-  useEffect(() => { selectionsRef.current = selections }, [selections])
+  useEffect(() => { selectionsRef.current = state.selections }, [state.selections])
+
+  // Reset when eventId changes
+  if (state.lastEventId !== eventId) {
+    setState({ selections: [], loading: true, lastEventId: eventId })
+  }
 
   useEffect(() => {
     if (!eventId) return
     let cancelled = false
-    // Note: not resetting loading here to avoid lint warning
-    // Initial state is already loading=true
 
     supabase
       .from('selections')
@@ -24,8 +34,11 @@ export function useSelections(eventId: string, participantId: string) {
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) toast.error('載入時間選擇失敗')
-        else setSelections((data as Selection[]) ?? [])
-        setLoading(false)
+        setState(prev => ({
+          ...prev,
+          selections: (data as Selection[]) ?? [],
+          loading: false
+        }))
       })
 
     return () => { cancelled = true }
@@ -42,7 +55,10 @@ export function useSelections(eventId: string, participantId: string) {
         (payload) => {
           const row = payload.new as Selection
           // Dedupe by id to handle multi-tab sync for same account
-          setSelections((prev) => prev.some((s) => s.id === row.id) ? prev : [...prev, row])
+          setState((prev) => ({ 
+            ...prev, 
+            selections: prev.selections.some((s) => s.id === row.id) ? prev.selections : [...prev.selections, row]
+          }))
         }
       )
       .on(
@@ -50,7 +66,7 @@ export function useSelections(eventId: string, participantId: string) {
         { event: 'DELETE', schema: 'public', table: 'selections', filter: `event_id=eq.${eventId}` },
         (payload) => {
           const row = payload.old as { id: string }
-          setSelections((prev) => prev.filter((s) => s.id !== row.id))
+          setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => s.id !== row.id) }))
         }
       )
       .subscribe((status) => {
@@ -75,11 +91,11 @@ export function useSelections(eventId: string, participantId: string) {
 
     const tempIds = uniqueSlots.map((slot) => `temp-${date}-${slot}`)
     const optimistic: Selection[] = rows.map((r, i) => ({ ...r, id: tempIds[i] }))
-    setSelections((prev) => {
+    setState((prev) => {
       const existing = new Set(
-        prev.filter((s) => s.participant_id === participantId && s.date === date).map((s) => s.slot)
+        prev.selections.filter((s) => s.participant_id === participantId && s.date === date).map((s) => s.slot)
       )
-      return [...prev, ...optimistic.filter((o) => !existing.has(o.slot))]
+      return { ...prev, selections: [...prev.selections, ...optimistic.filter((o) => !existing.has(o.slot))] }
     })
 
     const { data, error } = await supabase
@@ -88,17 +104,20 @@ export function useSelections(eventId: string, participantId: string) {
       .select()
 
     if (error) {
-      setSelections((prev) => prev.filter((s) => !tempIds.includes(s.id)))
+      setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => !tempIds.includes(s.id)) }))
       toast.error('儲存失敗，請重試')
       return
     }
 
     if (data && data.length > 0) {
       // Normal upsert: replace temp entries with real data
-      setSelections((prev) => [
-        ...prev.filter((s) => !tempIds.includes(s.id)),
-        ...(data as Selection[]),
-      ])
+      setState((prev) => ({
+        ...prev,
+        selections: [
+          ...prev.selections.filter((s) => !tempIds.includes(s.id)),
+          ...(data as Selection[]),
+        ]
+      }))
     } else {
       // Empty array = ignoreDuplicates skipped, re-fetch real IDs to replace temp
       const { data: synced, error: syncError } = await supabase
@@ -110,22 +129,22 @@ export function useSelections(eventId: string, participantId: string) {
         .in('slot', uniqueSlots)
 
       if (syncError) {
-        setSelections((prev) => prev.filter((s) => !tempIds.includes(s.id)))
+        setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => !tempIds.includes(s.id)) }))
         toast.error('同步失敗，請重試')
         return
       }
 
       if (synced && synced.length > 0) {
-        setSelections((prev) => {
-          const withoutTemp = prev.filter((s) => !tempIds.includes(s.id))
+        setState((prev) => {
+          const withoutTemp = prev.selections.filter((s) => !tempIds.includes(s.id))
           // Dedupe by id to avoid duplicates in drag scenarios
           const existingIds = new Set(withoutTemp.map((s) => s.id))
           const newSelections = (synced as Selection[]).filter((s) => !existingIds.has(s.id))
-          return [...withoutTemp, ...newSelections]
+          return { ...prev, selections: [...withoutTemp, ...newSelections] }
         })
       } else {
         // Re-fetch succeeded but returned empty array, clear temp and show error
-        setSelections((prev) => prev.filter((s) => !tempIds.includes(s.id)))
+        setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => !tempIds.includes(s.id)) }))
         toast.error('資料同步異常，請重新整理')
       }
     }
@@ -139,7 +158,7 @@ export function useSelections(eventId: string, participantId: string) {
     )
     const idsToRemove = toRemove.map((s) => s.id)
 
-    setSelections((prev) => prev.filter((s) => !idsToRemove.includes(s.id)))
+    setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => !idsToRemove.includes(s.id)) }))
 
     const { error } = await supabase
       .from('selections')
@@ -147,7 +166,7 @@ export function useSelections(eventId: string, participantId: string) {
       .in('id', idsToRemove)
 
     if (error) {
-      setSelections((prev) => [...prev, ...toRemove])
+      setState((prev) => ({ ...prev, selections: [...prev.selections, ...toRemove] }))
       toast.error('取消失敗，請重試')
     }
   }, [participantId])
@@ -155,18 +174,18 @@ export function useSelections(eventId: string, participantId: string) {
   const removeByParticipantId = useCallback((pid: string): Selection[] => {
     // Use ref snapshot to get stable removed items before state update
     const removed = selectionsRef.current.filter((s) => s.participant_id === pid)
-    setSelections((prev) => prev.filter((s) => s.participant_id !== pid))
+    setState((prev) => ({ ...prev, selections: prev.selections.filter((s) => s.participant_id !== pid) }))
     return removed
   }, [])
 
   const restoreSelections = useCallback((items: Selection[]) => {
     if (items.length === 0) return
-    setSelections((prev) => {
-      const existingIds = new Set(prev.map((s) => s.id))
+    setState((prev) => {
+      const existingIds = new Set(prev.selections.map((s) => s.id))
       const toAdd = items.filter((s) => !existingIds.has(s.id))
-      return [...prev, ...toAdd]
+      return { ...prev, selections: [...prev.selections, ...toAdd] }
     })
   }, [])
 
-  return { selections, loading, addSlots, removeSlots, removeByParticipantId, restoreSelections }
+  return { selections: state.selections, loading: state.loading, addSlots, removeSlots, removeByParticipantId, restoreSelections }
 }

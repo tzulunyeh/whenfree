@@ -33,16 +33,26 @@ export default function EventPage() {
   }, [event?.name])
 
   const wasSeenInList = useRef(false)
+  const wasSeenSessionId = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!session) { wasSeenInList.current = false; return }
+    if (!session) { 
+      wasSeenInList.current = false
+      wasSeenSessionId.current = null
+      return 
+    }
     if (participantsLoading) return
 
     const inList = participants.some(p => p.id === session.participantId)
 
     if (inList) {
-      wasSeenInList.current = true
-    } else if (wasSeenInList.current) {
+      // Only mark as seen if this is still the same session
+      if (wasSeenSessionId.current === session.participantId || wasSeenSessionId.current === null) {
+        wasSeenInList.current = true
+        wasSeenSessionId.current = session.participantId
+      }
+    } else if (wasSeenInList.current && wasSeenSessionId.current === session.participantId) {
+      // Only clear if this session was previously seen
       clearSession()
       toast('你的名字已被移除，請重新加入', { icon: 'ℹ️' })
     }

@@ -5,14 +5,24 @@ import type { Participant } from '../lib/types'
 import { REALTIME_DISCONNECT_MSG } from '../lib/constants'
 
 export function useParticipants(eventId: string) {
-  const [participants, setParticipants] = useState<Participant[]>([])
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState<{
+    participants: Participant[]
+    loading: boolean
+    lastEventId: string
+  }>({
+    participants: [],
+    loading: true,
+    lastEventId: eventId
+  })
+
+  // Reset when eventId changes
+  if (state.lastEventId !== eventId) {
+    setState({ participants: [], loading: true, lastEventId: eventId })
+  }
 
   useEffect(() => {
     if (!eventId) return
     let cancelled = false
-    // Note: not resetting loading here to avoid lint warning
-    // Initial state is already loading=true
 
     supabase
       .from('participants')
@@ -21,8 +31,11 @@ export function useParticipants(eventId: string) {
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) toast.error('載入參與者失敗')
-        else setParticipants((data as Participant[]) ?? [])
-        setLoading(false)
+        setState(prev => ({
+          ...prev,
+          participants: (data as Participant[]) ?? [],
+          loading: false
+        }))
       })
 
     return () => { cancelled = true }
@@ -37,10 +50,10 @@ export function useParticipants(eventId: string) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'participants', filter: `event_id=eq.${eventId}` },
         (payload) => {
-          setParticipants((prev) => {
+          setState((prev) => {
             const newP = payload.new as Participant
-            if (prev.some((p) => p.id === newP.id)) return prev
-            return [...prev, newP]
+            if (prev.participants.some((p) => p.id === newP.id)) return prev
+            return { ...prev, participants: [...prev.participants, newP] }
           })
         }
       )
@@ -49,7 +62,7 @@ export function useParticipants(eventId: string) {
         { event: 'DELETE', schema: 'public', table: 'participants', filter: `event_id=eq.${eventId}` },
         (payload) => {
           const old = payload.old as { id: string }
-          setParticipants((prev) => prev.filter((p) => p.id !== old.id))
+          setState((prev) => ({ ...prev, participants: prev.participants.filter((p) => p.id !== old.id) }))
         }
       )
       .subscribe((status) => {
@@ -63,21 +76,24 @@ export function useParticipants(eventId: string) {
 
   async function deleteParticipant(id: string, onRollback?: () => void) {
     let removed: Participant | undefined
-    setParticipants((prev) => {
-      removed = prev.find((p) => p.id === id)
-      return prev.filter((p) => p.id !== id)
+    setState((prev) => {
+      removed = prev.participants.find((p) => p.id === id)
+      return { ...prev, participants: prev.participants.filter((p) => p.id !== id) }
     })
     const { error } = await supabase.from('participants').delete().eq('id', id)
     if (error) {
       toast.error('刪除失敗')
-      if (removed) setParticipants((prev) => [...prev, removed!])
+      if (removed) setState((prev) => ({ ...prev, participants: [...prev.participants, removed!] }))
       onRollback?.()
     }
   }
 
   function addParticipant(p: Participant) {
-    setParticipants((prev) => prev.some((x) => x.id === p.id) ? prev : [...prev, p])
+    setState((prev) => ({
+      ...prev,
+      participants: prev.participants.some((x) => x.id === p.id) ? prev.participants : [...prev.participants, p]
+    }))
   }
 
-  return { participants, loading, deleteParticipant, addParticipant }
+  return { participants: state.participants, loading: state.loading, deleteParticipant, addParticipant }
 }

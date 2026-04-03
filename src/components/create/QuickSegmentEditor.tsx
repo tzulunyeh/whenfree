@@ -23,6 +23,7 @@ export default function QuickSegmentEditor({ segments, onChange, earliestSlot, l
   }
 
   const slotOptions = useMemo(() => slotRange(earliestSlot, latestSlot + 1), [earliestSlot, latestSlot])
+  const startSlotOptions = useMemo(() => slotRange(earliestSlot, latestSlot), [earliestSlot, latestSlot])
 
   return (
     <div className="space-y-3">
@@ -56,7 +57,7 @@ export default function QuickSegmentEditor({ segments, onChange, earliestSlot, l
             onChange={(e) => updateSegment(i, { start: Number(e.target.value) })}
             className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            {slotOptions.map((s) => (
+            {startSlotOptions.map((s) => (
               <option key={s} value={s}>{slotToTime(s)}</option>
             ))}
           </select>

@@ -3,14 +3,25 @@ import { supabase } from '../lib/supabase'
 import type { Event } from '../lib/types'
 
 export function useEvent(slug: string) {
-  const [event, setEvent] = useState<Event | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [state, setState] = useState<{
+    event: Event | null
+    loading: boolean
+    error: string | null
+    lastSlug: string
+  }>({
+    event: null,
+    loading: true,
+    error: null,
+    lastSlug: slug
+  })
+
+  // Reset when slug changes
+  if (state.lastSlug !== slug) {
+    setState({ event: null, loading: true, error: null, lastSlug: slug })
+  }
 
   useEffect(() => {
     let cancelled = false
-    // Note: not resetting loading/error here to avoid lint warning
-    // Initial state is already loading=true
 
     supabase
       .from('events')
@@ -22,20 +33,21 @@ export function useEvent(slug: string) {
         if (err) {
           // PGRST116 = no rows returned (not found)
           const isNotFound = err.code === 'PGRST116'
-          setError(isNotFound ? '找不到活動' : '網路錯誤，請重試')
-          setEvent(null)
+          setState(prev => ({
+            ...prev,
+            error: isNotFound ? '找不到活動' : '網路錯誤，請重試',
+            event: null,
+            loading: false
+          }))
         } else if (!data) {
-          setError('找不到活動')
-          setEvent(null)
+          setState(prev => ({ ...prev, error: '找不到活動', event: null, loading: false }))
         } else {
-          setEvent(data as Event)
-          setError(null)
+          setState(prev => ({ ...prev, event: data as Event, error: null, loading: false }))
         }
-        setLoading(false)
       })
 
     return () => { cancelled = true }
   }, [slug])
 
-  return { event, loading, error }
+  return { event: state.event, loading: state.loading, error: state.error }
 }
