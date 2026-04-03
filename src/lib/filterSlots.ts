@@ -50,17 +50,20 @@ export function findMatchingSlots(
           runStart = slot
           runAttendees = new Set(attendees)
         } else {
-          // Continue run: intersect attendees (keep only those present in both)
+          // Compute intersection first; only apply it if it still meets threshold.
+          // Otherwise flush previous run with its original attendee set.
+          const intersection = new Set<string>()
           for (const id of runAttendees!) {
-            if (!attendees.has(id)) runAttendees!.delete(id)
+            if (attendees.has(id)) intersection.add(id)
           }
-          // If intersection drops below minAttendance, flush and restart
-          if (runAttendees!.size < minAttendance) {
+
+          if (intersection.size >= minAttendance) {
+            runAttendees = intersection
+          } else {
             flushRun(slot)
             runStart = slot
             runAttendees = new Set(attendees)
           }
-          // Note: we don't flush when someone joins - they just aren't part of this run's attendees
         }
       } else {
         flushRun(slot)
