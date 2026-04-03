@@ -26,20 +26,41 @@ export function useSelections(eventId: string, participantId: string) {
   useEffect(() => {
     if (!eventId) return
     let cancelled = false
+    const PAGE_SIZE = 1000
 
-    supabase
-      .from('selections')
-      .select('*')
-      .eq('event_id', eventId)
-      .then(({ data, error }) => {
+    async function loadAllSelections() {
+      const all: Selection[] = []
+      let from = 0
+
+      while (true) {
+        const to = from + PAGE_SIZE - 1
+        const { data, error } = await supabase
+          .from('selections')
+          .select('*')
+          .eq('event_id', eventId)
+          .order('id', { ascending: true })
+          .range(from, to)
+
         if (cancelled) return
-        if (error) toast.error('載入時間選擇失敗')
-        setState(prev => ({
-          ...prev,
-          selections: (data as Selection[]) ?? [],
-          loading: false
-        }))
-      })
+
+        if (error) {
+          toast.error('載入時間選擇失敗')
+          setState(prev => ({ ...prev, selections: [], loading: false }))
+          return
+        }
+
+        const batch = (data as Selection[]) ?? []
+        all.push(...batch)
+
+        if (batch.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+
+      if (cancelled) return
+      setState(prev => ({ ...prev, selections: all, loading: false }))
+    }
+
+    void loadAllSelections()
 
     return () => { cancelled = true }
   }, [eventId])
