@@ -22,7 +22,7 @@ export default function EventPage() {
   const { participants, loading: participantsLoading, deleteParticipant, addParticipant } = useParticipants(event?.id ?? '')
 
   const [minDurationSlots, setMinDurationSlots] = useState(4)
-  const [minAttendance, setMinAttendance] = useState<number | null>(null) // null = 全員（跟著人數走）
+  const [minAttendance, setMinAttendance] = useState<number | null>(null) // null = everyone (follows participant count)
 
   const totalParticipants = Math.max(1, participants.length)
   const safeMinAttendance = minAttendance === null ? totalParticipants : Math.min(minAttendance, totalParticipants)
