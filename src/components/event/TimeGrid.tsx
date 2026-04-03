@@ -69,19 +69,16 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
 
   // Refs so native touch handlers always see current values without re-registering listeners
   const selectedByDateRef = useRef(selectedByDate)
-  selectedByDateRef.current = selectedByDate
-
   const dateToIndexRef = useRef(dateToIndex)
-  dateToIndexRef.current = dateToIndex
-
   const eventDatesRef = useRef(event.dates)
-  eventDatesRef.current = event.dates
-
   const onAddSlotsRef = useRef(onAddSlots)
-  onAddSlotsRef.current = onAddSlots
-
   const onRemoveSlotsRef = useRef(onRemoveSlots)
-  onRemoveSlotsRef.current = onRemoveSlots
+
+  useEffect(() => { selectedByDateRef.current = selectedByDate }, [selectedByDate])
+  useEffect(() => { dateToIndexRef.current = dateToIndex }, [dateToIndex])
+  useEffect(() => { eventDatesRef.current = event.dates }, [event.dates])
+  useEffect(() => { onAddSlotsRef.current = onAddSlots }, [onAddSlots])
+  useEffect(() => { onRemoveSlotsRef.current = onRemoveSlots }, [onRemoveSlots])
 
   const clearDrag = useCallback(() => {
     dragRef.current = null
@@ -151,7 +148,7 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
       el.removeEventListener('touchend', onTouchEnd)
       el.removeEventListener('touchcancel', onTouchCancel)
     }
-  }, [])
+  }, [clearDrag, doCommit])
 
   // Mouse events for desktop
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {

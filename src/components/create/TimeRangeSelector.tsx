@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { slotToTime, ALL_SLOTS } from '../../lib/slots'
+import { slotToTime, ALL_SLOTS, ALL_END_SLOTS } from '../../lib/slots'
 
 interface Props {
   earliestSlot: number
@@ -10,7 +10,7 @@ interface Props {
 
 export default function TimeRangeSelector({ earliestSlot, latestSlot, onEarliestChange, onLatestChange }: Props) {
   const earliestOptions = useMemo(() => ALL_SLOTS.filter((s) => s < latestSlot), [latestSlot])
-  const latestOptions = useMemo(() => ALL_SLOTS.filter((s) => s > earliestSlot), [earliestSlot])
+  const latestOptions = useMemo(() => ALL_END_SLOTS.filter((s) => s > earliestSlot), [earliestSlot])
 
   return (
     <div className="space-y-3">

@@ -12,6 +12,9 @@ export function formatDateLabel(date: string): { dayLabel: string; dateLabel: st
 
 export const ALL_SLOTS = Array.from({ length: SLOTS_PER_DAY }, (_, i) => i)
 
+// End time slots: 1-48 (00:30 ~ 24:00)
+export const ALL_END_SLOTS = Array.from({ length: SLOTS_PER_DAY }, (_, i) => i + 1)
+
 export function slotToTime(slot: number): string {
   const h = Math.floor(slot / 2)
   const m = slot % 2 === 0 ? '00' : '30'

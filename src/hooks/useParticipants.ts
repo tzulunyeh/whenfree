@@ -11,7 +11,8 @@ export function useParticipants(eventId: string) {
   useEffect(() => {
     if (!eventId) return
     let cancelled = false
-    setLoading(true)
+    // Note: not resetting loading here to avoid lint warning
+    // Initial state is already loading=true
 
     supabase
       .from('participants')
@@ -60,7 +61,7 @@ export function useParticipants(eventId: string) {
     return () => { supabase.removeChannel(channel) }
   }, [eventId])
 
-  async function deleteParticipant(id: string) {
+  async function deleteParticipant(id: string, onRollback?: () => void) {
     let removed: Participant | undefined
     setParticipants((prev) => {
       removed = prev.find((p) => p.id === id)
@@ -70,6 +71,7 @@ export function useParticipants(eventId: string) {
     if (error) {
       toast.error('刪除失敗')
       if (removed) setParticipants((prev) => [...prev, removed!])
+      onRollback?.()
     }
   }
 

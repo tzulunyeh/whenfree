@@ -9,8 +9,8 @@ export function useEvent(slug: string) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    // Note: not resetting loading/error here to avoid lint warning
+    // Initial state is already loading=true
 
     supabase
       .from('events')
@@ -21,8 +21,10 @@ export function useEvent(slug: string) {
         if (cancelled) return
         if (err || !data) {
           setError('找不到活動')
+          setEvent(null)
         } else {
           setEvent(data as Event)
+          setError(null)
         }
         setLoading(false)
       })

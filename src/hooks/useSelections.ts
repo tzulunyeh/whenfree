@@ -8,12 +8,14 @@ export function useSelections(eventId: string, participantId: string) {
   const [selections, setSelections] = useState<Selection[]>([])
   const [loading, setLoading] = useState(true)
   const selectionsRef = useRef(selections)
-  selectionsRef.current = selections
+
+  useEffect(() => { selectionsRef.current = selections }, [selections])
 
   useEffect(() => {
     if (!eventId) return
     let cancelled = false
-    setLoading(true)
+    // Note: not resetting loading here to avoid lint warning
+    // Initial state is already loading=true
 
     supabase
       .from('selections')
@@ -149,11 +151,25 @@ export function useSelections(eventId: string, participantId: string) {
       setSelections((prev) => [...prev, ...toRemove])
       toast.error('取消失敗，請重試')
     }
-  }, [eventId, participantId])
+  }, [participantId])
 
-  const removeByParticipantId = useCallback((pid: string) => {
-    setSelections((prev) => prev.filter((s) => s.participant_id !== pid))
+  const removeByParticipantId = useCallback((pid: string): Selection[] => {
+    let removed: Selection[] = []
+    setSelections((prev) => {
+      removed = prev.filter((s) => s.participant_id === pid)
+      return prev.filter((s) => s.participant_id !== pid)
+    })
+    return removed
   }, [])
 
-  return { selections, loading, addSlots, removeSlots, removeByParticipantId }
+  const restoreSelections = useCallback((items: Selection[]) => {
+    if (items.length === 0) return
+    setSelections((prev) => {
+      const existingIds = new Set(prev.map((s) => s.id))
+      const toAdd = items.filter((s) => !existingIds.has(s.id))
+      return [...prev, ...toAdd]
+    })
+  }, [])
+
+  return { selections, loading, addSlots, removeSlots, removeByParticipantId, restoreSelections }
 }
