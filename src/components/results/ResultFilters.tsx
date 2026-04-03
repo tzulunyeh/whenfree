@@ -4,6 +4,9 @@ interface Props {
   minAttendance: number
   onMinAttendanceChange: (n: number) => void
   totalParticipants: number
+  participants: { id: string; name: string }[]
+  excludedParticipantIds: string[]
+  onToggleExcludedParticipant: (participantId: string) => void
 }
 
 const DURATION_OPTIONS = [
@@ -18,9 +21,10 @@ const DURATION_OPTIONS = [
 export default function ResultFilters({
   minDurationSlots, onMinDurationChange,
   minAttendance, onMinAttendanceChange,
-  totalParticipants,
+  totalParticipants, participants, excludedParticipantIds, onToggleExcludedParticipant,
 }: Props) {
   const currentDurationIndex = DURATION_OPTIONS.findIndex((d) => d.slots === minDurationSlots)
+  const excludedSet = new Set(excludedParticipantIds)
 
   return (
     <div className="space-y-4">
@@ -62,6 +66,38 @@ export default function ResultFilters({
         <div className="flex justify-between text-xs text-gray-400 mt-0.5">
           <span>1人</span><span>{totalParticipants}人（全員）</span>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">排除成員（不納入計算）</label>
+          <span className="text-xs text-gray-500">
+            已排除 {excludedParticipantIds.length} 人
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {participants.map((p) => {
+            const excluded = excludedSet.has(p.id)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={excluded}
+                onClick={() => onToggleExcludedParticipant(p.id)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                  excluded
+                    ? 'bg-orange-100 border-orange-300 text-orange-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {p.name}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-500">
+          最少出席人數以未排除的 {totalParticipants} 人計算
+        </p>
       </div>
     </div>
   )

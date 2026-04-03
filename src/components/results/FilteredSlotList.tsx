@@ -7,19 +7,41 @@ interface Props {
   event: Event
   selections: Selection[]
   participants: Participant[]
+  excludedParticipantIds: string[]
   minDurationSlots: number
   minAttendance: number
 }
 
-export default function FilteredSlotList({ event, selections, participants, minDurationSlots, minAttendance }: Props) {
+export default function FilteredSlotList({
+  event, selections, participants, excludedParticipantIds, minDurationSlots, minAttendance
+}: Props) {
   const { dates, earliest_time, latest_time } = event
+  const includedCount = useMemo(
+    () => participants.filter((p) => !new Set(excludedParticipantIds).has(p.id)).length,
+    [participants, excludedParticipantIds]
+  )
   const groups = useMemo(() => {
-    const slots = findMatchingSlots(dates, selections, participants, earliest_time, latest_time, minDurationSlots, minAttendance)
+    const excludedSet = new Set(excludedParticipantIds)
+    const includedParticipants = participants.filter((p) => !excludedSet.has(p.id))
+    const includedSelections = selections.filter((s) => !excludedSet.has(s.participant_id))
+    const slots = findMatchingSlots(
+      dates,
+      includedSelections,
+      includedParticipants,
+      earliest_time,
+      latest_time,
+      minDurationSlots,
+      minAttendance
+    )
     return groupSlots(slots)
-  }, [dates, selections, participants, earliest_time, latest_time, minDurationSlots, minAttendance])
+  }, [dates, selections, participants, excludedParticipantIds, earliest_time, latest_time, minDurationSlots, minAttendance])
 
   if (participants.length === 0) {
     return <p className="text-sm text-gray-400">等待參與者填寫…</p>
+  }
+
+  if (includedCount === 0) {
+    return <p className="text-sm text-gray-400">請至少保留 1 位成員參與計算</p>
   }
 
   if (groups.length === 0) {

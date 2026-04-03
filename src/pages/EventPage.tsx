@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { useParams } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent'
@@ -23,9 +23,31 @@ export default function EventPage() {
 
   const [minDurationSlots, setMinDurationSlots] = useState(4)
   const [minAttendance, setMinAttendance] = useState<number | null>(null) // null = everyone (follows participant count)
+  const [excludedParticipantIds, setExcludedParticipantIds] = useState<string[]>([])
 
-  const totalParticipants = Math.max(1, participants.length)
-  const safeMinAttendance = minAttendance === null ? totalParticipants : Math.min(minAttendance, totalParticipants)
+  const validParticipantIdSet = useMemo(() => new Set(participants.map((p) => p.id)), [participants])
+  const normalizedExcludedParticipantIds = useMemo(
+    () => excludedParticipantIds.filter((id) => validParticipantIdSet.has(id)),
+    [excludedParticipantIds, validParticipantIdSet]
+  )
+  const excludedSet = useMemo(() => new Set(normalizedExcludedParticipantIds), [normalizedExcludedParticipantIds])
+  const includedParticipantsCount = useMemo(
+    () => participants.filter((p) => !excludedSet.has(p.id)).length,
+    [participants, excludedSet]
+  )
+  const safeMinAttendance = useMemo(() => {
+    if (includedParticipantsCount === 0) return 1
+    if (minAttendance === null) return includedParticipantsCount
+    return Math.min(minAttendance, includedParticipantsCount)
+  }, [minAttendance, includedParticipantsCount])
+
+  const toggleExcludedParticipant = useCallback((participantId: string) => {
+    setExcludedParticipantIds((prev) =>
+      prev.includes(participantId)
+        ? prev.filter((id) => id !== participantId)
+        : [...prev, participantId]
+    )
+  }, [])
 
   useEffect(() => {
     if (event?.name) document.title = event.name
@@ -169,8 +191,11 @@ export default function EventPage() {
               minDurationSlots={minDurationSlots}
               onMinDurationChange={setMinDurationSlots}
               minAttendance={safeMinAttendance}
-              onMinAttendanceChange={(n) => setMinAttendance(n >= totalParticipants ? null : n)}
-              totalParticipants={totalParticipants}
+              onMinAttendanceChange={(n) => setMinAttendance(n >= Math.max(1, includedParticipantsCount) ? null : n)}
+              totalParticipants={includedParticipantsCount}
+              participants={participants}
+              excludedParticipantIds={normalizedExcludedParticipantIds}
+              onToggleExcludedParticipant={toggleExcludedParticipant}
             />
           </div>
 
@@ -178,6 +203,7 @@ export default function EventPage() {
             event={event}
             selections={selections}
             participants={participants}
+            excludedParticipantIds={normalizedExcludedParticipantIds}
             minDurationSlots={minDurationSlots}
             minAttendance={safeMinAttendance}
           />
