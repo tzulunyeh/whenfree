@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 
 interface Props {
   text: string
@@ -14,8 +15,12 @@ export default function CopyButton({ text }: Props) {
   }, [copied])
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+    } catch {
+      toast.error('複製失敗')
+    }
   }
 
   return (

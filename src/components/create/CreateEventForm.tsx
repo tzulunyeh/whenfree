@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -22,6 +22,17 @@ export default function CreateEventForm() {
   ])
   const [loading, setLoading] = useState(false)
   const [createdSlug, setCreatedSlug] = useState<string | null>(null)
+
+  // Auto-clamp quick segments when time range changes
+  useEffect(() => {
+    setSegments((prev) =>
+      prev.map((seg) => ({
+        ...seg,
+        start: Math.max(earliestSlot, Math.min(seg.start, latestSlot - 1)),
+        end: Math.max(earliestSlot + 1, Math.min(seg.end, latestSlot)),
+      }))
+    )
+  }, [earliestSlot, latestSlot])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

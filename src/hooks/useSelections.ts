@@ -41,16 +41,15 @@ export function useSelections(eventId: string, participantId: string) {
         { event: 'INSERT', schema: 'public', table: 'selections', filter: `event_id=eq.${eventId}` },
         (payload) => {
           const row = payload.new as Selection
-          if (row.participant_id === participantId) return
-          setSelections((prev) => [...prev, row])
+          // Dedupe by id to handle multi-tab sync for same account
+          setSelections((prev) => prev.some((s) => s.id === row.id) ? prev : [...prev, row])
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'selections', filter: `event_id=eq.${eventId}` },
         (payload) => {
-          const row = payload.old as { id: string; participant_id: string }
-          if (row.participant_id === participantId) return
+          const row = payload.old as { id: string }
           setSelections((prev) => prev.filter((s) => s.id !== row.id))
         }
       )
@@ -61,7 +60,7 @@ export function useSelections(eventId: string, participantId: string) {
       })
 
     return () => { supabase.removeChannel(channel) }
-  }, [eventId, participantId])
+  }, [eventId])
 
   const addSlots = useCallback(async (date: string, slots: number[]) => {
     if (!participantId || slots.length === 0) return

@@ -19,7 +19,12 @@ export function useEvent(slug: string) {
       .single()
       .then(({ data, error: err }) => {
         if (cancelled) return
-        if (err || !data) {
+        if (err) {
+          // PGRST116 = no rows returned (not found)
+          const isNotFound = err.code === 'PGRST116'
+          setError(isNotFound ? '找不到活動' : '網路錯誤，請重試')
+          setEvent(null)
+        } else if (!data) {
           setError('找不到活動')
           setEvent(null)
         } else {
