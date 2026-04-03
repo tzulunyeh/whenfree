@@ -153,11 +153,9 @@ export function useSelections(eventId: string, participantId: string) {
   }, [participantId])
 
   const removeByParticipantId = useCallback((pid: string): Selection[] => {
-    let removed: Selection[] = []
-    setSelections((prev) => {
-      removed = prev.filter((s) => s.participant_id === pid)
-      return prev.filter((s) => s.participant_id !== pid)
-    })
+    // Use ref snapshot to get stable removed items before state update
+    const removed = selectionsRef.current.filter((s) => s.participant_id === pid)
+    setSelections((prev) => prev.filter((s) => s.participant_id !== pid))
     return removed
   }, [])
 
