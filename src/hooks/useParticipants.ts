@@ -73,5 +73,9 @@ export function useParticipants(eventId: string) {
     }
   }
 
-  return { participants, loading, deleteParticipant }
+  function addParticipant(p: Participant) {
+    setParticipants((prev) => prev.some((x) => x.id === p.id) ? prev : [...prev, p])
+  }
+
+  return { participants, loading, deleteParticipant, addParticipant }
 }

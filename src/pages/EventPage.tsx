@@ -18,8 +18,8 @@ export default function EventPage() {
   const { slug } = useParams<{ slug: string }>()
   const { event, loading, error } = useEvent(slug!)
   const { session, saveSession, clearSession } = useParticipantSession(event?.id ?? '')
-  const { selections, addSlots, removeSlots } = useSelections(event?.id ?? '', session?.participantId ?? '')
-  const { participants, loading: participantsLoading, deleteParticipant } = useParticipants(event?.id ?? '')
+  const { selections, addSlots, removeSlots, removeByParticipantId } = useSelections(event?.id ?? '', session?.participantId ?? '')
+  const { participants, loading: participantsLoading, deleteParticipant, addParticipant } = useParticipants(event?.id ?? '')
 
   const [minDurationSlots, setMinDurationSlots] = useState(4)
   const [minAttendance, setMinAttendance] = useState<number | null>(null) // null = 全員（跟著人數走）
@@ -70,7 +70,17 @@ export default function EventPage() {
   }
 
   if (!session) {
-    return <ParticipantLogin eventId={event.id} eventName={event.name} participants={participants} onLogin={(s: ParticipantSession) => saveSession(s)} />
+    return (
+      <ParticipantLogin
+        eventId={event.id}
+        eventName={event.name}
+        participants={participants}
+        onLogin={(s: ParticipantSession) => {
+          saveSession(s)
+          addParticipant({ id: s.participantId, event_id: event.id, name: s.name, avatar_seed: s.avatarSeed, created_at: new Date().toISOString() })
+        }}
+      />
+    )
   }
 
   return (
@@ -124,6 +134,7 @@ export default function EventPage() {
                     onClick={() => {
                       if (window.confirm(`確定要移除「${p.name}」的所有時段？此操作無法復原。`)) {
                         deleteParticipant(p.id)
+                        removeByParticipantId(p.id)
                       }
                     }}
                     className="absolute -top-1 -right-1 w-4 h-4 bg-red-400 hover:bg-red-500 text-white rounded-full text-[10px] leading-none opacity-30 group-hover:opacity-100 transition-opacity flex items-center justify-center"

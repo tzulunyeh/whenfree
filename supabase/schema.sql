@@ -60,6 +60,7 @@ CREATE POLICY "selections_delete" ON selections FOR DELETE USING (true);
 
 -- Enable Realtime for participants and selections
 ALTER TABLE participants REPLICA IDENTITY FULL;
+ALTER TABLE selections REPLICA IDENTITY FULL;
 ALTER PUBLICATION supabase_realtime ADD TABLE participants;
 ALTER PUBLICATION supabase_realtime ADD TABLE selections;
 

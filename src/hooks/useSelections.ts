@@ -121,5 +121,9 @@ export function useSelections(eventId: string, participantId: string) {
     }
   }, [eventId, participantId])
 
-  return { selections, loading, addSlots, removeSlots }
+  const removeByParticipantId = useCallback((pid: string) => {
+    setSelections((prev) => prev.filter((s) => s.participant_id !== pid))
+  }, [])
+
+  return { selections, loading, addSlots, removeSlots, removeByParticipantId }
 }
