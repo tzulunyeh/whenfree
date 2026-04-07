@@ -17,11 +17,16 @@ interface DragState {
 interface Props {
   event: Event
   mySelections: Selection[]
-  onAddSlots: (date: string, slots: number[]) => void
-  onRemoveSlots: (date: string, slots: number[]) => void
+  onAddSlotsAcrossDates: (dates: string[], slots: number[]) => void
+  onRemoveSlotsAcrossDates: (dates: string[], slots: number[]) => void
 }
 
-export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlots }: Props) {
+export default function TimeGrid({
+  event,
+  mySelections,
+  onAddSlotsAcrossDates,
+  onRemoveSlotsAcrossDates,
+}: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
@@ -71,14 +76,14 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
   const selectedByDateRef = useRef(selectedByDate)
   const dateToIndexRef = useRef(dateToIndex)
   const eventDatesRef = useRef(event.dates)
-  const onAddSlotsRef = useRef(onAddSlots)
-  const onRemoveSlotsRef = useRef(onRemoveSlots)
+  const onAddSlotsAcrossDatesRef = useRef(onAddSlotsAcrossDates)
+  const onRemoveSlotsAcrossDatesRef = useRef(onRemoveSlotsAcrossDates)
 
   useEffect(() => { selectedByDateRef.current = selectedByDate }, [selectedByDate])
   useEffect(() => { dateToIndexRef.current = dateToIndex }, [dateToIndex])
   useEffect(() => { eventDatesRef.current = event.dates }, [event.dates])
-  useEffect(() => { onAddSlotsRef.current = onAddSlots }, [onAddSlots])
-  useEffect(() => { onRemoveSlotsRef.current = onRemoveSlots }, [onRemoveSlots])
+  useEffect(() => { onAddSlotsAcrossDatesRef.current = onAddSlotsAcrossDates }, [onAddSlotsAcrossDates])
+  useEffect(() => { onRemoveSlotsAcrossDatesRef.current = onRemoveSlotsAcrossDates }, [onRemoveSlotsAcrossDates])
 
   const clearDrag = useCallback(() => {
     dragRef.current = null
@@ -95,10 +100,8 @@ export default function TimeGrid({ event, mySelections, onAddSlots, onRemoveSlot
     const affected = eventDatesRef.current.slice(dLo, dHi + 1)
     const [lo, hi] = normalizeSlotRange(ds.anchorSlot, endSlot)
     const rangeSlots = slotRange(lo, hi + 1)
-    for (const d of affected) {
-      if (ds.mode === 'selecting') onAddSlotsRef.current(d, rangeSlots)
-      else onRemoveSlotsRef.current(d, rangeSlots)
-    }
+    if (ds.mode === 'selecting') onAddSlotsAcrossDatesRef.current(affected, rangeSlots)
+    else onRemoveSlotsAcrossDatesRef.current(affected, rangeSlots)
   }, [])
 
   // Touch events — registered once at mount; { passive: false } required for iOS Safari

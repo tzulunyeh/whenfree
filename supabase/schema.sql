@@ -21,7 +21,7 @@ CREATE TABLE participants (
   event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   name text NOT NULL,
   avatar_seed text NOT NULL,
-  user_id uuid,  -- anonymous auth uid, used for RLS
+  user_id uuid,  -- reserved for future auth-based ownership
   created_at timestamptz DEFAULT now(),
   UNIQUE (event_id, name)
 );
@@ -42,6 +42,29 @@ CREATE INDEX idx_participants_event_id ON participants(event_id);
 CREATE INDEX idx_selections_event_id ON selections(event_id);
 CREATE INDEX idx_selections_participant_id ON selections(participant_id);
 
+-- Enforce selection date belongs to the event's date range
+CREATE OR REPLACE FUNCTION validate_selection_date_in_event()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM events e
+    WHERE e.id = NEW.event_id
+      AND NEW.date = ANY(e.dates)
+  ) THEN
+    RAISE EXCEPTION 'Selection date must be included in event dates';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_selection_date_in_event
+BEFORE INSERT OR UPDATE ON selections
+FOR EACH ROW
+EXECUTE FUNCTION validate_selection_date_in_event();
+
 -- RLS
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
@@ -58,6 +81,10 @@ CREATE POLICY "selections_select" ON selections FOR SELECT USING (true);
 CREATE POLICY "selections_insert" ON selections FOR INSERT WITH CHECK (true);
 CREATE POLICY "selections_delete" ON selections FOR DELETE USING (true);
 
+-- Keep creator token server-side only
+REVOKE SELECT (creator_token) ON events FROM anon;
+REVOKE SELECT (creator_token) ON events FROM authenticated;
+
 -- Enable Realtime for participants and selections
 ALTER TABLE participants REPLICA IDENTITY FULL;
 ALTER TABLE selections REPLICA IDENTITY FULL;
@@ -70,3 +97,4 @@ ALTER TABLE events ADD CONSTRAINT check_slot_bounds CHECK (earliest_time >= 0 AN
 ALTER TABLE events ADD CONSTRAINT check_dates_nonempty CHECK (array_length(dates, 1) > 0);
 ALTER TABLE events ADD CONSTRAINT check_name_length CHECK (char_length(name) <= 80);
 ALTER TABLE participants ADD CONSTRAINT check_name_length CHECK (char_length(name) <= 30);
+ALTER TABLE selections ADD CONSTRAINT check_slot_bounds CHECK (slot >= 0 AND slot <= 47);

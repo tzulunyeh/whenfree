@@ -35,12 +35,18 @@ export default function GroupHeatmap({ event, selections, participants }: Props)
   const { countMap, attendeesMap } = useMemo(() => {
     const counts = new Map<string, number>()
     const attendees = new Map<string, Participant[]>()
+    const seenSelectionTuples = new Set<string>()
+
     for (const s of selections) {
+      const tupleKey = `${s.participant_id}\0${s.date}\0${s.slot}`
+      if (seenSelectionTuples.has(tupleKey)) continue
+      seenSelectionTuples.add(tupleKey)
+
       const key = `${s.date}-${s.slot}`
       counts.set(key, (counts.get(key) ?? 0) + 1)
       const list = attendees.get(key) ?? []
       const p = participantById.get(s.participant_id)
-      if (p) list.push(p)
+      if (p && !list.some((item) => item.id === p.id)) list.push(p)
       attendees.set(key, list)
     }
     return { countMap: counts, attendeesMap: attendees }

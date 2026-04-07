@@ -24,15 +24,17 @@ export default function ParticipantLogin({ eventId, eventName, participants, onL
 
     setLoading(true)
     try {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('participants')
         .select('id, avatar_seed')
         .eq('event_id', eventId)
         .eq('name', trimmed)
         .maybeSingle()
+      if (existingError) throw existingError
 
       if (existing) {
-        onLogin({ participantId: existing.id, name: trimmed, avatarSeed: existing.avatar_seed })
+        const existingParticipant = existing as { id: string; avatar_seed: string }
+        onLogin({ participantId: existingParticipant.id, name: trimmed, avatarSeed: existingParticipant.avatar_seed })
         toast.success(`歡迎回來，${trimmed}！`)
         return
       }
@@ -41,20 +43,40 @@ export default function ParticipantLogin({ eventId, eventName, participants, onL
       const { data, error } = await supabase
         .from('participants')
         .insert({ event_id: eventId, name: trimmed, avatar_seed: avatarSeed })
-        .select('id')
+        .select('id, avatar_seed')
         .single()
 
       if (error) {
         // Unique constraint violation = name taken (race condition)
         if (error.code === '23505') {
-          toast.error('此名字已被使用，請換一個名字')
+          const { data: conflicted, error: conflictError } = await supabase
+            .from('participants')
+            .select('id, avatar_seed')
+            .eq('event_id', eventId)
+            .eq('name', trimmed)
+            .maybeSingle()
+          if (conflictError) throw conflictError
+
+          const conflictedParticipant = conflicted as { id: string; avatar_seed: string } | null
+          if (conflictedParticipant) {
+            onLogin({
+              participantId: conflictedParticipant.id,
+              name: trimmed,
+              avatarSeed: conflictedParticipant.avatar_seed,
+            })
+            toast.success(`歡迎回來，${trimmed}！`)
+          } else {
+            toast.error('登入失敗，請稍後再試')
+          }
         } else {
           throw error
         }
         return
       }
 
-      onLogin({ participantId: data.id, name: trimmed, avatarSeed })
+      if (!data) throw new Error('Participant insert returned no data')
+      const inserted = data as { id: string; avatar_seed: string }
+      onLogin({ participantId: inserted.id, name: trimmed, avatarSeed: inserted.avatar_seed })
     } catch (err) {
       console.error(err)
       toast.error('登入失敗，請稍後再試')

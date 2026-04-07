@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Event } from '../lib/types'
 
+const EVENT_SELECT_COLUMNS = 'id,slug,name,dates,earliest_time,latest_time,quick_segments,admin_only_creator,created_at'
+
 export function useEvent(slug: string) {
   const [state, setState] = useState<{
     event: Event | null
@@ -25,7 +27,7 @@ export function useEvent(slug: string) {
 
     supabase
       .from('events')
-      .select('*')
+      .select(EVENT_SELECT_COLUMNS)
       .eq('slug', slug)
       .single()
       .then(({ data, error: err }) => {

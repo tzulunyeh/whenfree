@@ -4,11 +4,16 @@ import { slotToTime, slotRange } from '../../lib/slots'
 interface Props {
   event: Event
   mySelections: Selection[]
-  onAddSlots: (date: string, slots: number[]) => void
-  onRemoveSlots: (date: string, slots: number[]) => void
+  onAddSlotsAcrossDates: (dates: string[], slots: number[]) => void
+  onRemoveSlotsAcrossDates: (dates: string[], slots: number[]) => void
 }
 
-export default function QuickSelectButtons({ event, mySelections, onAddSlots, onRemoveSlots }: Props) {
+export default function QuickSelectButtons({
+  event,
+  mySelections,
+  onAddSlotsAcrossDates,
+  onRemoveSlotsAcrossDates,
+}: Props) {
   if (event.quick_segments.length === 0) return null
 
   function handleSegmentToggle(start: number, end: number) {
@@ -26,13 +31,11 @@ export default function QuickSelectButtons({ event, mySelections, onAddSlots, on
       return segSlots.every((slot) => myDateSlots.has(slot))
     })
 
-    event.dates.forEach((date) => {
-      if (allSelected) {
-        onRemoveSlots(date, segSlots)
-      } else {
-        onAddSlots(date, segSlots)
-      }
-    })
+    if (allSelected) {
+      onRemoveSlotsAcrossDates(event.dates, segSlots)
+    } else {
+      onAddSlotsAcrossDates(event.dates, segSlots)
+    }
   }
 
   return (

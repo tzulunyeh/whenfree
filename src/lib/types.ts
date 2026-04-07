@@ -8,7 +8,6 @@ export interface Event {
   latest_time: number       // slot index 0-47, exclusive
   quick_segments: QuickSegment[]
   admin_only_creator: boolean
-  creator_token: string
   created_at: string
 }
 

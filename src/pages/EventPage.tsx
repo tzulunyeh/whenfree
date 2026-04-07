@@ -18,7 +18,13 @@ export default function EventPage() {
   const { slug } = useParams<{ slug: string }>()
   const { event, loading, error } = useEvent(slug!)
   const { session, saveSession, clearSession } = useParticipantSession(event?.id ?? '')
-  const { selections, addSlots, removeSlots, removeByParticipantId, restoreSelections } = useSelections(event?.id ?? '', session?.participantId ?? '')
+  const {
+    selections,
+    addSlotsAcrossDates,
+    removeSlotsAcrossDates,
+    removeByParticipantId,
+    restoreSelections,
+  } = useSelections(event?.id ?? '', session?.participantId ?? '')
   const { participants, loading: participantsLoading, deleteParticipant, addParticipant } = useParticipants(event?.id ?? '')
 
   const [minDurationSlots, setMinDurationSlots] = useState(4)
@@ -142,14 +148,14 @@ export default function EventPage() {
           <QuickSelectButtons
             event={event}
             mySelections={mySelections}
-            onAddSlots={addSlots}
-            onRemoveSlots={removeSlots}
+            onAddSlotsAcrossDates={addSlotsAcrossDates}
+            onRemoveSlotsAcrossDates={removeSlotsAcrossDates}
           />
           <TimeGrid
             event={event}
             mySelections={mySelections}
-            onAddSlots={addSlots}
-            onRemoveSlots={removeSlots}
+            onAddSlotsAcrossDates={addSlotsAcrossDates}
+            onRemoveSlotsAcrossDates={removeSlotsAcrossDates}
           />
         </section>
 
